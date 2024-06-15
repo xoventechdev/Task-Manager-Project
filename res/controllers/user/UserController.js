@@ -92,6 +92,7 @@ export const userSignIn = async (req, res) => {
     // Generate JWT token
     const token = jwt.sign(
       {
+        userId: user._id,
         email: user.email,
         role: user.role,
       },
@@ -228,6 +229,146 @@ export const passwordForgot = async (req, res) => {
     res.status(200).json({
       status: "success",
       response: "Password reset link sent to your email",
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: "error", response: err.message });
+  }
+};
+
+export const passwordReset = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    const user = await UserModel.findOne({
+      otp: token,
+      otpExpireTime: { $gt: Date.now() }, // Check for unexpired token
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ status: "warning", response: "Invalid token or expired" });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+    user.otp = undefined; // Clear token after successful reset
+    user.otpExpireTime = undefined;
+
+    await user.save();
+
+    res
+      .status(200)
+      .json({ status: "success", response: "Password reset successful" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: "error", response: err.message });
+  }
+};
+
+export const userProfileUpdate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let updates = req.body;
+    const email = req.email;
+
+    // Allow updates to specific fields (e.g., firstName, lastName, photo)
+    const allowedUpdates = ["firstName", "lastName", "email", "mobile"];
+    const isValidUpdate = updates.every((update) =>
+      allowedUpdates.includes(update)
+    );
+    if (!isValidUpdate) {
+      return res
+        .status(400)
+        .json({ status: "warning", response: "Invalid update fields" });
+    }
+
+    const exUser = await UserModel.findOne({
+      _id: id,
+    });
+
+    if (!exUser) {
+      return res
+        .status(404)
+        .json({ status: "warning", response: "User not found" });
+    }
+
+    if (email === updates.email) {
+      await UserModel.findByIdAndUpdate({ email: email }, updates, {
+        new: true,
+      });
+      res.status(200).json({
+        status: "success",
+        response: "User profile updated successfully.",
+      });
+    } else {
+      updates.altEmail = updates.email;
+      updates.email = email;
+      await UserModel.findByIdAndUpdate({ email: email }, updates, {
+        new: true,
+      });
+      return res.status(200).json({
+        status: "success",
+        response:
+          "User profile updated successfully. But, you have to verify your email. ",
+      });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: "error", response: err.message });
+  }
+};
+
+export const emailVerifyRequest = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res
+        .status(400)
+        .json({ status: "warning", response: "Email address not found" });
+    }
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    user.otp = otp;
+    user.otpExpireTime = Date.now() + 15 * 60 * 1000; // 10 minutes
+    await user.save();
+    const emailStatus = await sendVerificationEmail(user.email, otp);
+    if (!emailStatus) {
+      return res.status(500).json({
+        status: "error",
+        response: "Verification email sending failed. Please try again",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      response: "Verification email sent to your email",
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: "error", response: err.message });
+  }
+};
+
+export const getUserProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const exUser = await UserModel.findOne({
+      _id: id,
+    });
+
+    if (!exUser) {
+      return res
+        .status(404)
+        .json({ status: "warning", response: "User not found" });
+    }
+
+    return res.status(200).json({
+      status: "success",
+      response: exUser,
     });
   } catch (err) {
     console.error(err);

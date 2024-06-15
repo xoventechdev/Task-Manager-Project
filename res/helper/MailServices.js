@@ -37,7 +37,7 @@ export const sendVerificationEmail = async (email, otp) => {
       from: '"Your App Name" <noreply@yourapp.com>', // Replace with your app name and email
       to: email,
       subject: "Email Verification OTP",
-      text: `Your verification code is ${otp}. This code is valid for 30 minutes. Please do not share this code with anyone.`,
+      text: `Your verification code is ${otp}. This code is valid for 15 minutes. Please do not share this code with anyone.`,
     };
 
     await transporter.sendMail(mailOptions);

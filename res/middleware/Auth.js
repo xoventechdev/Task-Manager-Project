@@ -16,6 +16,7 @@ export const verifyToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    req.userId = decoded.userId;
     req.email = decoded.email;
     req.role = decoded.role;
     next();
@@ -29,7 +30,7 @@ export const verifyToken = (req, res, next) => {
 
 const authorizationLevels = {
   admin: ["admin"],
-  editor: ["editor"],
+  editor: ["manager"],
   user: ["user"],
 };
 
